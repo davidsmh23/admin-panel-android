@@ -1,0 +1,45 @@
+name: Build APK
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.7' }
+
+      - name: Decode keystore
+        run: echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+        env: { KEYSTORE_B64: '${{ secrets.KEYSTORE_B64 }}' }
+
+      - name: Build release APK
+        run: gradle --no-daemon assembleRelease
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: ${{ github.ref_name }}
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk AdminPanel.apk
+
+      - uses: actions/upload-artifact@v4
+        with: { name: AdminPanel-apk, path: AdminPanel.apk }
+
+      - name: Publish release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gh release create "$GITHUB_REF_NAME" AdminPanel.apk --title "$GITHUB_REF_NAME" --notes "APK de Android del Admin Panel (login con Pocket ID)." || gh release upload "$GITHUB_REF_NAME" AdminPanel.apk --clobber
+        env: { GH_TOKEN: '${{ github.token }}' }
