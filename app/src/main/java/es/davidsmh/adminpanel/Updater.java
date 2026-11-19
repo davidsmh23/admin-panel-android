@@ -7,7 +7,13 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.net.Uri;
+import java.io.File;
+import java.security.MessageDigest;
+import java.util.Arrays;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
@@ -47,7 +53,7 @@ final class Updater {
                     JSONObject o = assets.getJSONObject(i);
                     if (o.getString("name").endsWith(".apk")) { url = o.getString("browser_download_url"); break; }
                 }
-                if (url == null) return;
+                if (url == null || !url.startsWith("https://github.com/davidsmh23/admin-panel-android/")) return;   // solo desde el repo oficial
                 final String dl = url;
                 a.runOnUiThread(() -> prompt(a, tag, dl));
             } catch (Exception ignored) { /* sin red o sin releases: no molestar */ }
@@ -85,6 +91,10 @@ final class Updater {
                 ctx.getApplicationContext().unregisterReceiver(this);
                 Uri u = dm.getUriForDownloadedFile(id);
                 if (u == null) { Toast.makeText(ctx, "Descarga fallida", Toast.LENGTH_LONG).show(); return; }
+                if (!sameSigner(ctx, new File(ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "AdminPanel-update.apk"))) {
+                    Toast.makeText(ctx, "La APK descargada no está firmada con la clave de Admin Panel; instalación cancelada", Toast.LENGTH_LONG).show();
+                    return;
+                }
                 Intent inst = new Intent(Intent.ACTION_VIEW)
                         .setDataAndType(u, "application/vnd.android.package-archive")
                         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -94,6 +104,23 @@ final class Updater {
         IntentFilter f = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
         if (Build.VERSION.SDK_INT >= 33) a.getApplicationContext().registerReceiver(rc, f, Context.RECEIVER_EXPORTED);
         else a.getApplicationContext().registerReceiver(rc, f);
+    }
+
+    /** Comprueba que el APK descargado esta firmado con el mismo certificado que la app instalada. */
+    private static boolean sameSigner(Context ctx, File apk) {
+        try {
+            PackageManager pm = ctx.getPackageManager();
+            PackageInfo mine = pm.getPackageInfo(ctx.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+            PackageInfo theirs = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
+            if (theirs == null || theirs.signingInfo == null || mine.signingInfo == null) return false;
+            return sha(mine.signingInfo.getApkContentsSigners()).equals(sha(theirs.signingInfo.getApkContentsSigners()));
+        } catch (Exception e) { return false; }
+    }
+
+    private static java.util.Set<String> sha(Signature[] sigs) throws Exception {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (Signature s : sigs) out.add(Arrays.toString(MessageDigest.getInstance("SHA-256").digest(s.toByteArray())));
+        return out;
     }
 
     /** Compara "v1.2.3" con "1.2.3" numericamente. */
