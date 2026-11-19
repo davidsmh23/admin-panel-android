@@ -23,6 +23,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.webkit.WebSettingsCompat;
+import androidx.webkit.WebViewFeature;
 
 /**
  * Envoltorio nativo del panel. Muestra una pantalla de acceso propia y, al pulsar,
@@ -132,6 +134,9 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setSupportMultipleWindows(false);
+        // Passkeys (WebAuthn) en el WebView via Credential Manager; requiere assetlinks.json en id.davidsmh.es
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION))
+            WebSettingsCompat.setWebAuthenticationSupport(s, WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_APP);
 
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
