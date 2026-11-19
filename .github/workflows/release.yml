@@ -34,12 +34,12 @@ jobs:
           APP_VERSION_NAME: ${{ github.ref_name }}
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk AdminPanel.apk
+        run: cp app/build/outputs/apk/release/app-release.apk RaspiPanel.apk
 
       - uses: actions/upload-artifact@v4
-        with: { name: AdminPanel-apk, path: AdminPanel.apk }
+        with: { name: RaspiPanel-apk, path: RaspiPanel.apk }
 
       - name: Publish release asset
         if: startsWith(github.ref, 'refs/tags/')
-        run: gh release create "$GITHUB_REF_NAME" AdminPanel.apk --title "$GITHUB_REF_NAME" --notes "APK de Android del Admin Panel (login con Pocket ID)." || gh release upload "$GITHUB_REF_NAME" AdminPanel.apk --clobber
+        run: gh release create "$GITHUB_REF_NAME" RaspiPanel.apk --title "$GITHUB_REF_NAME" --notes "APK de Android del Admin Panel (login con Pocket ID)." || gh release upload "$GITHUB_REF_NAME" RaspiPanel.apk --clobber
         env: { GH_TOKEN: '${{ github.token }}' }
